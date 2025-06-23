@@ -1,13 +1,20 @@
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function ProductDetailsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const name = searchParams.get('name');
   const image = searchParams.get('image');
+  const productId = searchParams.get('id');
+
+  useEffect(() => {
+    console.log('[Page] /productDescription: Loaded.');
+    console.log('[Page] /productDescription: Product Name:', name);
+    console.log('[Page] /productDescription: Product ID:', productId);
+  }, [name, productId]);
 
   const [prompt, setPrompt] = useState('');
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -15,7 +22,7 @@ export default function ProductDetailsPage() {
   const [color, setColor] = useState('');
   const [count, setCount] = useState('1');
   const [error, setError] = useState('');
-
+  const [isGenerating, setIsGenerating] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
 const samplePrompts = [
@@ -35,24 +42,35 @@ const samplePrompts = [
       return;
     }
 
+    console.log(`[Page] /productDescription: Uploading ${files.length} image(s).`);
+
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setUploadedImages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + Math.random(),
-            url: event.target.result,
-            name: file.name,
-          },
-        ]);
+        setUploadedImages((prev) => {
+          const newImages = [
+            ...prev,
+            {
+              id: Date.now() + Math.random(),
+              url: event.target.result,
+              name: file.name,
+              file: file, // Store the actual file for upload
+            },
+          ];
+          console.log('[Page] /productDescription: Updated image state:', newImages);
+          return newImages;
+        });
       };
       reader.readAsDataURL(file);
     });
   };
 
   const removeImage = (id) => {
-    setUploadedImages((prev) => prev.filter((img) => img.id !== id));
+    setUploadedImages((prev) => {
+      const newImages = prev.filter((img) => img.id !== id);
+      console.log(`[Page] /productDescription: Removed image. New state:`, newImages);
+      return newImages;
+    });
   };
 
   const handleGenerate = async () => {
@@ -61,30 +79,56 @@ const samplePrompts = [
       return;
     }
 
+    console.log('[Page] /productDescription: Starting generation process...');
     setError('');
+    setIsGenerating(true);
 
-    // Simulate API payload
-    const payload = {
-      prompt,
-      adjectives,
-      color,
-      count,
-      product: { name, image },
-      references: uploadedImages.map((img) => img.url),
-    };
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('productId', productId || '');
+      formData.append('productName', name || '');
+      formData.append('prompt', prompt);
+      formData.append('adjectives', adjectives);
+      formData.append('color', color);
+      formData.append('count', count);
 
-    console.log('Sending data to backend:', payload);
+      console.log('[Page] /productDescription: FormData created.', {
+        productId, name, prompt, adjectives, color, count, imageCount: uploadedImages.length
+      });
 
-    // You can replace this with actual API call
-    // Example:
-    // const response = await fetch('/api/generate', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(payload),
-    // });
+      // Append reference images
+      uploadedImages.forEach((img) => {
+        if (img.file) {
+          formData.append('referenceImages', img.file);
+        }
+      });
 
-    // Navigate to results page with query OR save to storage
-    router.push(`/FirstGeneration?prompt=${encodeURIComponent(prompt)}&name=${name}`);
+      console.log('[Page] /productDescription: Sending POST request to /api/generate.');
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log(`[Page] /productDescription: Received response with status: ${response.status}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate images');
+      }
+
+      console.log('[Page] /productDescription: Generation successful. Result:', result);
+      // Navigate to results page with generation ID
+      console.log(`[Page] /productDescription: Navigating to /FirstGeneration with ID: ${result.generationId}`);
+      router.push(`/FirstGeneration?generationId=${result.generationId}&name=${encodeURIComponent(name || '')}`);
+      
+    } catch (error) {
+      console.error('[Page] /productDescription: Generation error caught in component:', error);
+      setError(error.message || 'Failed to generate images. Please try again.');
+    } finally {
+      console.log('[Page] /productDescription: Ending generation process.');
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -158,6 +202,7 @@ const samplePrompts = [
               placeholder="Describe what you want to generate..."
               className="w-full border border-gray-300 px-4 py-3 rounded-lg resize-none h-24 focus:ring-2 focus:ring-[#233B6E]"
               required
+              disabled={isGenerating}
             />
             {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
           </div>
@@ -173,8 +218,9 @@ const samplePrompts = [
                 onChange={handleImageUpload}
                 className="hidden"
                 id="image-upload"
+                disabled={isGenerating}
               />
-              <label htmlFor="image-upload" className="cursor-pointer text-gray-500 text-sm font-medium">
+              <label htmlFor="image-upload" className={`cursor-pointer text-gray-500 text-sm font-medium ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 Click to upload images
               </label>
             </div>
@@ -186,6 +232,7 @@ const samplePrompts = [
                     <Image src={img.url} alt={img.name} layout="fill" objectFit="cover" className="rounded" />
                     <button
                       onClick={() => removeImage(img.id)}
+                      disabled={isGenerating}
                       className="absolute top-1 right-1 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     >
                       ×
@@ -206,6 +253,7 @@ const samplePrompts = [
                 onChange={(e) => setAdjectives(e.target.value)}
                 placeholder="e.g. bold, stylish"
                 className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-[#233B6E]"
+                disabled={isGenerating}
               />
             </div>
             <div>
@@ -216,14 +264,19 @@ const samplePrompts = [
                 onChange={(e) => setColor(e.target.value)}
                 placeholder="e.g. red, pastel"
                 className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-[#233B6E]"
+                disabled={isGenerating}
               />
             </div>
             <div>
               <label className="block text-lg font-bold mb-1">Count</label>
               <select
                 value={count}
-                onChange={(e) => setCount(e.target.value)}
+                onChange={(e) => {
+                  setCount(e.target.value);
+                  console.log('[Page] /productDescription: Count changed to:', e.target.value);
+                }}
                 className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-[#233B6E] bg-white"
+                disabled={isGenerating}
               >
                 {[1, 2, 3, 4, 5, 6].map((val) => (
                   <option key={val} value={val}>{val}</option>
@@ -236,9 +289,14 @@ const samplePrompts = [
           <div className="pt-4 flex justify-end">
             <button
               onClick={handleGenerate}
-              className="w-1/4 bg-[#233B6E] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#1d2d55]"
+              disabled={isGenerating || !prompt.trim()}
+              className={`w-1/4 px-6 py-3 rounded-full font-semibold transition ${
+                isGenerating || !prompt.trim()
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-[#233B6E] text-white hover:bg-[#1d2d55]'
+              }`}
             >
-              Generate
+              {isGenerating ? 'Generating...' : 'Generate'}
             </button>
           </div>
         </div>
