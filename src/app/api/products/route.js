@@ -8,13 +8,13 @@ export async function GET() {
       { id: 1, name: 'Hoodie', image: '/ProductTypeHooide.svg', category: 'hoodie' },
       { id: 2, name: 'Blazer', image: '/ProductTypeBlazer.svg', category: 'blazer' },
       { id: 3, name: 'Parka', image: '/ProductTypeParka.svg', category: 'parka' },
-      { id: 4, name: 'Cardigan', image: '/ProductTypeHooide.svg', category: 'cardigan' },
-      { id: 5, name: 'Shrug', image: '/ProductTypeHooide.svg', category: 'shrug' },
-      { id: 6, name: 'Skirt', image: '/ProductTypeHooide.svg', category: 'skirt' },
-      { id: 7, name: 'Overalls', image: '/ProductTypeHooide.svg', category: 'overalls' },
-      { id: 8, name: 'Blouse', image: '/ProductTypeHooide.svg', category: 'blouse' },
-      { id: 9, name: 'Kurta', image: '/ProductTypeHooide.svg', category: 'kurta' },
-      { id: 10, name: 'Dress', image: '/ProductTypeHooide.svg', category: 'dress' },
+      { id: 4, name: 'Cardigan', image: '/ProductTypeCardigan.svg', category: 'cardigan' },
+      { id: 5, name: 'Shrug', image: '/ProductTypeShurg.svg', category: 'shrug' },
+      { id: 6, name: 'Skirt', image: '/ProductTypeSkirt.svg', category: 'skirt' },
+      { id: 7, name: 'Overalls', image: '/ProductTypeOveralls.svg', category: 'overalls' },
+      { id: 8, name: 'Blouse', image: '/ProductTypeBlouse.svg', category: 'blouse' },
+      { id: 9, name: 'Kurta', image: '/ProductTypeKurta.svg', category: 'kurta' },
+      { id: 10, name: 'Dress', image: '/ProductTypeDress.svg', category: 'dress' },
     ];
     
     console.log('[API] /api/products: Successfully returned default product list.');

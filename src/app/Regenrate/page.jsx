@@ -6,13 +6,15 @@ import { useState, useEffect } from 'react';
 export default function RegeneratePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const imageParam = searchParams.get('images');
-  const name = searchParams.get('name') || '';
+  const generationId = searchParams.get('generationId');
+  const name = searchParams.get('name');
 
   const [prompt, setPrompt] = useState('');
   const [count, setCount] = useState('1');
   const [imageUrls, setImageUrls] = useState([]);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -23,95 +25,115 @@ export default function RegeneratePage() {
   }, [imageParam]);
 
   const handleSubmit = async () => {
+    setError('');
+
     if (!prompt.trim()) {
-      setError('Prompt is required');
+      setError('Prompt is required.');
       return;
     }
 
-    setIsRegenerating(true);
-    setError('');
-
     try {
-      const response = await fetch('/api/regenerate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          selectedImages: imageUrls,
-          newPrompt: prompt,
-          count: parseInt(count),
-          productName: name
-        }),
-      });
+      setSubmitting(true);
 
-      const result = await response.json();
+      // const res = await fetch('/api/regenerate', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify({
+      //     generationId,
+      //     selectedImages: imageUrls,
+      //     newPrompt: prompt,
+      //     count: parseInt(count),
+      //     productName: name || ''
+      //   })
+      // });
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to regenerate images');
-      }
+      // const text = await res.text();
 
-      // Navigate to regenerated images page
-      router.push(`/RegeneratedImages?generationId=${result.generationId}&name=${encodeURIComponent(name)}`);
-      
-    } catch (error) {
-      console.error('Regeneration error:', error);
-      setError(error.message || 'Failed to regenerate images. Please try again.');
+      // let data;
+      // try {
+      //   data = JSON.parse(text);
+      // } catch (err) {
+      //   console.error('Response was not JSON:', text);
+      //   throw new Error('Server error: Invalid JSON returned. Check server logs.');
+      // }
+
+      // if (!res.ok) {
+      //   throw new Error(data.error || 'Failed to regenerate');
+      // }
+
+      // Redirect on success
+      router.push(
+        `/RegeneratedImages?generationId=${generationId}&name=${name}&count=${count}&prompt=${encodeURIComponent(prompt)}`
+      );
+
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setIsRegenerating(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen px-10 py-8 bg-white">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="w-6 h-6 relative cursor-pointer">
-          <Image src="/ArrowBack.svg" alt="Back" fill />
+    <div className="min-h-screen px-6 md:px-16 py-10 bg-white mt-[65px]">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.back()} className="w-6 h-6 relative cursor-pointer">
+            <Image src="/ArrowBack.svg" alt="Back" fill />
+          </button>
+          <h1 className="text-[24px] md:text-[32px] font-semibold text-[#233B6E]">
+            Regenerate Designs
+          </h1>
+        </div>
+        <button onClick={() => router.push('/')} className="w-6 h-6 relative cursor-pointer">
+          <Image src="/CrossIcon.svg" alt="Close" fill />
         </button>
-        <h1 className="text-3xl font-bold text-[#233B6E]">Regenerate Selected Images</h1>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
+      {/* Selected Images */}
+      {imageUrls.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-10">
+          {imageUrls.map((url, index) => (
+            <div key={index} className="relative border border-gray-300 rounded-lg overflow-hidden">
+              <Image
+                src={url}
+                alt={`Selected ${index}`}
+                width={300}
+                height={300}
+                className="object-contain w-full h-64"
+              />
+            </div>
+          ))}
         </div>
+      ) : (
+        <p className="text-gray-500 mb-10">No images selected for regeneration.</p>
       )}
 
-      {/* Selected Images Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-10">
-        {imageUrls.map((url, index) => (
-          <div key={index} className="relative border-2 rounded-lg overflow-hidden">
-            <Image
-              src={url}
-              alt={`Selected ${index}`}
-              width={300}
-              height={300}
-              className="object-cover w-full h-64"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Prompt & Count */}
-      <div className="max-w-xl space-y-4">
-        <div>
-          <label className="block text-lg font-bold mb-1">Prompt<span className="text-red-500">*</span></label>
+      {/* Prompt and Count */}
+      <div className="flex flex-col md:flex-row gap-6 items-start">
+        <div className="w-full md:w-2/3">
+          <label className="block text-lg font-semibold mb-2">
+            Prompt<span className="text-red-500">*</span>
+          </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Enter new prompt for regeneration"
-            className="w-full border border-gray-300 px-4 py-3 rounded-lg resize-none h-24 focus:ring-2 focus:ring-[#233B6E]"
-            disabled={isRegenerating}
+            className="w-full border border-gray-300 px-4 py-3 rounded-lg resize-none h-28 focus:ring-2 focus:ring-[#233B6E]"
           />
+          {error && (
+            <p className="text-red-600 mt-2 text-sm">{error}</p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-lg font-bold mb-1">Count</label>
+        <div className="w-full md:w-1/3">
+          <label className="block text-lg font-semibold mb-2">Count</label>
           <select
             value={count}
             onChange={(e) => setCount(e.target.value)}
-            className="w-full border border-gray-300 px-4 py-2 rounded-lg"
-            disabled={isRegenerating}
+            className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:ring-2 focus:ring-[#233B6E] bg-white"
           >
             {[1, 2, 3, 4, 5, 6].map((num) => (
               <option key={num} value={num}>
@@ -120,20 +142,21 @@ export default function RegeneratePage() {
             ))}
           </select>
         </div>
+      </div>
 
-        <div className="pt-4">
-          <button
-            onClick={handleSubmit}
-            disabled={isRegenerating || !prompt.trim()}
-            className={`px-8 py-3 rounded-full font-medium transition ${
-              isRegenerating || !prompt.trim()
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#233B6E] text-white hover:bg-[#1a2951]'
-            }`}
-          >
-            {isRegenerating ? 'Regenerating...' : 'Regenerate'}
-          </button>
-        </div>
+      {/* Submit Button (below count field) */}
+      <div className="flex justify-end mt-6">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className={`px-8 py-3 rounded-full font-semibold transition ${
+            submitting
+              ? 'bg-gray-400 text-gray-100 cursor-not-allowed'
+              : 'bg-[#233B6E] text-white hover:bg-[#1a2951]'
+          }`}
+        >
+          {submitting ? 'Regenerating...' : 'Regenerate'}
+        </button>
       </div>
     </div>
   );
